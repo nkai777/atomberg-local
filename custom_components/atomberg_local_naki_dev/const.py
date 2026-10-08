@@ -2,7 +2,7 @@
 
 from homeassistant.const import Platform
 
-DOMAIN = "atomberg_local"
+DOMAIN = "atomberg_local_naki"
 
 PLATFORMS = [
     Platform.FAN,

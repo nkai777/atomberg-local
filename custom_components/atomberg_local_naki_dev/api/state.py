@@ -39,6 +39,10 @@ class FanState:
     light_mode: str
     series: str | None = None
     raw: int = 0
+    voltage: float | None = None
+    current: float | None = None
+    runtime_hours: float | None = None
+    board_temp: float | None = None
 
     def as_dict(self) -> dict:
         return {
@@ -49,6 +53,10 @@ class FanState:
             ATTR_BRIGHTNESS: self.brightness,
             "timer_hours": self.timer_hours,
             ATTR_LIGHT_MODE: self.light_mode,
+            "voltage": self.voltage,
+            "current": self.current,
+            "runtime_hours": self.runtime_hours,
+            "board_temp": self.board_temp,
         }
 
 
@@ -68,6 +76,30 @@ def decode_state(state_string: str) -> FanState | None:
         else LIGHT_MODE_WARM
     )
     series = parts[7].strip() if len(parts) > 7 else None
+
+    def _safe_float(idx: int) -> float | None:
+        try:
+            return float(parts[idx].strip())
+        except (IndexError, ValueError):
+            return None
+
+    def _safe_int(idx: int) -> int | None:
+        try:
+            return int(parts[idx].strip())
+        except (IndexError, ValueError):
+            return None
+
+    power_bit = bool(v & 0x10)
+    # The fan's firmware does not refresh voltage/current once
+    # power is off -- the state_string keeps reporting the last
+    # running value indefinitely. Force these to 0.0 when we know
+    # power is off, rather than showing stale running-state data.
+    voltage = _safe_float(4) if power_bit else 0.0
+    current = _safe_float(15) if power_bit else 0.0
+    runtime_sec = _safe_int(11)
+    runtime_hours = round(runtime_sec / 3600.0, 1) if runtime_sec is not None else None
+    board_temp = _safe_float(16)
+
     return FanState(
         power=bool(v & 0x10),
         speed=v & 0x07,
@@ -78,6 +110,10 @@ def decode_state(state_string: str) -> FanState | None:
         light_mode=light_mode,
         series=series,
         raw=v,
+        voltage=voltage,
+        current=current,
+        runtime_hours=runtime_hours,
+        board_temp=board_temp,
     )
 
 
